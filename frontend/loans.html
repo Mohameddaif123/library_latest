@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Loan a Book</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Favicon -->
+    <link rel="shortcut icon" type="image/x-icon" href="../../static/favicon.png">
+
+    <!-- Toastify CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css" rel="stylesheet">
+    <!-- Toastify JS -->
+    <script src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
+
+    <style>
+        .allLoans {
+            list-style-type: none; /* Remove bullet points */
+            padding: 0; /* Remove default padding */
+            margin-top: 20px; /* Add some top margin */
+        }
+
+        .allLoans li {
+            border: 1px solid #ccc; /* Add border around each loan item */
+            padding: 10px; /* Add padding to each loan item */
+            margin-bottom: 10px; /* Add bottom margin between loan items */
+        }
+
+        .allLoans li button {
+            margin-left: 10px; /* Add margin to the return button */
+        }
+    </style>
+</head>
+<body>
+
+<!-- Logo container -->
+<div class="row mt-4 mb-4">
+    <div class="col-md-6">
+        <a href="/">
+            <img src="/static/logo.png" alt="Logo" style="max-height: 100px;">
+        </a>
+    </div>
+</div>
+
+<div class="container">
+    <h1>Loan a Book</h1>
+
+    <!-- Add New Loan Form -->
+    <h2>Loan a Book</h2>
+    <div class="form-group">
+        <label for="customerName">Customer:</label>
+        <select class="form-control" id="customerName" required>
+            <!-- Options will be populated dynamically -->
+        </select>
+    </div>
+    <div class="form-group">
+        <label for="bookName">Book:</label>
+        <select class="form-control" id="bookName" required>
+            <!-- Options will be populated dynamically -->
+        </select>
+    </div>
+    <button type="button" class="btn btn-primary" onclick="loanBook()">Loan Book</button>
+
+    <!-- Display All Loans -->
+    <h2>All Loans</h2>
+    <button type="button" class="btn btn-primary" onclick="toggleAllLoans()">Fetch All Loans</button>
+    <ul id="allLoans" class="allLoans" style="display: none;"></ul>
+
+    <!-- Display Late Loans -->
+    <h2>Late Loans</h2>
+    <ul id="lateLoans"></ul>
+</div>
+
+<!-- Bootstrap JS and jQuery (optional) -->
+<script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.3/dist/umd/popper.min.js"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+<!-- Axios -->
+<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+
+<script>
+    // Function to fetch and populate customers and books dropdowns
+    function fetchCustomersAndBooks() {
+        axios.get('/customers')
+            .then(response => {
+                var customerDropdown = document.getElementById('customerName');
+                response.data.forEach(customer => {
+                    var option = document.createElement('option');
+                    option.text = customer.name;
+                    option.value = customer.name; // Assuming name is unique
+                    customerDropdown.appendChild(option);
+                });
+            })
+            .catch(error => console.error('Error fetching customers:', error));
+
+        axios.get('/books')
+            .then(response => {
+                var bookDropdown = document.getElementById('bookName');
+                response.data.forEach(book => {
+                    var option = document.createElement('option');
+                    option.text = book.name;
+                    option.value = book.name; // Assuming name is unique
+                    bookDropdown.appendChild(option);
+                });
+            })
+            .catch(error => console.error('Error fetching books:', error));
+
+        // Call fetchLateLoans function after fetching customers and books
+        fetchLateLoans();
+    }
+
+    
+    // Function to fetch and display late loans
+    function fetchLateLoans() {
+        axios.get('/late_loans')
+            .then(response => {
+                var lateLoansList = document.getElementById('lateLoans');
+                lateLoansList.innerHTML = ''; // Clear the late loans list before populating it again
+                response.data.forEach(loan => {
+                    var listItem = document.createElement('li');
+                    listItem.textContent = `Customer: ${loan.customer_name}, Book: ${loan.book_name}, Loan Date: ${loan.loan_date}`;
+                    if (loan.return_date) {
+                        listItem.textContent += `, Return Date: ${loan.return_date}`;
+                    } else {
+                        listItem.textContent += ', Return Date: Not returned yet';
+                    }
+                    lateLoansList.appendChild(listItem);
+                });
+            })
+            .catch(error => console.error('Error fetching late loans:', error));
+    }
+
+    // Function to fetch all loans
+    function fetchAllLoans() {
+        var allLoansList = document.getElementById('allLoans');
+        if (!allLoansList) {
+            console.error('Element with id "allLoans" not found');
+            return;
+        }
+
+        axios.get('/loans')
+            .then(response => {
+                allLoansList.innerHTML = '';
+                response.data.forEach(loan => {
+                    var listItem = document.createElement('li');
+                    listItem.id = `loan_${loan.id}`;
+                    listItem.innerHTML = `Customer: ${loan.customer_name}, Book: ${loan.book_name}, Loan Date: ${loan.loan_date}, `;
+
+                    if (loan.return_date) {
+                        listItem.innerHTML += `Return Date: ${loan.return_date}`;
+                    } else {
+                        var currentDate = new Date();
+                        var returnDate = new Date(loan.expected_return_date);
+                        if (currentDate > returnDate) {
+                            listItem.innerHTML += `<strong>Overdue: Return Date Passed</strong>`;
+                        } else {
+                            var returnButton = document.createElement('button');
+                            returnButton.textContent = 'Return Book';
+                            returnButton.onclick = function () {
+                                returnBook(loan.id);
+                            };
+                            listItem.appendChild(returnButton);
+                        }
+                    }
+
+                    var deleteButton = document.createElement('button');
+                    deleteButton.textContent = 'Return Book';
+                    deleteButton.onclick = function () {
+                        deleteLoan(loan.id);
+                    };
+                    listItem.appendChild(deleteButton);
+
+                    var markAsLateButton = document.createElement('button');
+                    markAsLateButton.textContent = 'Mark as Late Loan';
+                    markAsLateButton.onclick = function () {
+                        markAsLate(loan.id);
+                    };
+                    listItem.appendChild(markAsLateButton);
+
+                    allLoansList.appendChild(listItem);
+                });
+            })
+            .catch(error => console.error('Error fetching all loans:', error));
+    }
+
+    // Function to loan a book
+    function loanBook() {
+        var customerName = document.getElementById('customerName').value;
+        var bookName = document.getElementById('bookName').value;
+
+        // Validate input fields
+        if (customerName.trim() === '' || bookName.trim() === '') {
+            alert("Please select a customer and a book.");
+            return;
+        }
+
+        // Check if the book is already on loan
+        var allLoansList = document.getElementById('allLoans');
+        var loans = allLoansList.getElementsByTagName('li');
+        for (var i = 0; i < loans.length; i++) {
+            var loan = loans[i];
+            var loanBookName = loan.textContent.split(',')[1].trim().split(':')[1].trim();
+            if (loanBookName === bookName) {
+                alert("This book is already on loan.");
+                return;
+            }
+        }
+
+        // If the book is not on loan, proceed to loan it
+        axios.post('/loan_book', {
+            customer_name: customerName,
+            book_name: bookName
+        })
+            .then(response => {
+                alert(response.data.message);
+                // Refresh the list of loans
+                fetchAllLoans();
+            })
+            .catch(error => console.error('Error:', error));
+    }
+
+    // Function to delete a loan
+    function deleteLoan(loanId) {
+        axios.delete(`/loans/${loanId}`)
+            .then(response => {
+                alert(response.data.message);
+                // Remove the deleted loan from the list of loans
+                var deletedLoan = document.getElementById(`loan_${loanId}`);
+                if (deletedLoan) {
+                    deletedLoan.remove();
+                }
+            })
+            .catch(error => console.error('Error deleting loan:', error));
+    }
+
+    // Function to mark a loan as late
+    function markAsLate(loanId) {
+        axios.put(`/mark_as_late/${loanId}`, {}, {
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+            .then(response => {
+                // Show success toast
+                showToast(response.data.message, 'success');
+
+                // Remove the marked loan from the list of all loans
+                var markedLoan = document.getElementById(`loan_${loanId}`);
+                if (markedLoan) {
+                    markedLoan.remove();
+                }
+
+                // Add the marked loan to the list of late loans
+                var lateLoansList = document.getElementById('lateLoans');
+                var loanData = response.data;
+                var listItem = document.createElement('li');
+                listItem.textContent = `Customer: ${loanData.customer_name}, Book: ${loanData.book_name}, Loan Date: ${loanData.loan_date}`;
+                if (loanData.return_date) {
+                    listItem.textContent += `, Return Date: ${loanData.return_date}`;
+                } else {
+                    listItem.textContent += ', Return Date: Not returned yet';
+                }
+                lateLoansList.appendChild(listItem);
+            })
+            .catch(error => {
+                // Show error toast
+                showToast('Error marking loan as late', 'error');
+                console.error('Error marking loan as late:', error);
+            });
+    }
+
+    // Function to check if a loan is already marked as late
+    function loanAlreadyMarkedAsLate(loanId) {
+        var lateLoansList = document.getElementById('lateLoans');
+        var loans = lateLoansList.getElementsByTagName('li');
+        for (var i = 0; i < loans.length; i++) {
+            var loan = loans[i];
+            var loanIdFromListItem = loan.id.split('_')[1]; // Extract loan ID from the list item ID
+            if (loanIdFromListItem === loanId) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // Function to show a toast message
+    function showToast(message, type) {
+        Toastify({
+            text: message,
+            duration: 3000,  // Duration in milliseconds
+            close: true,
+            gravity: "top",  // Toast position
+            position: 'left', // Toast position
+            backgroundColor: type === 'success' ? "green" : "red"  // Toast background color based on type
+        }).showToast();
+    }
+
+    // Function to toggle display of all loans
+    function toggleAllLoans() {
+        var allLoansList = document.getElementById('allLoans');
+        if (allLoansList.style.display === 'none') {
+            fetchAllLoans(); // Call a function to fetch all loans if needed
+            allLoansList.style.display = 'block'; // Show the list
+        } else {
+            allLoansList.innerHTML = ''; // Clear the list
+            allLoansList.style.display = 'none'; // Hide the list
+        }
+    }
+
+    // Call fetchCustomersAndBooks() to populate dropdowns when the page loads
+    window.onload = fetchCustomersAndBooks;
+
+</script>
+</body>
+</html>

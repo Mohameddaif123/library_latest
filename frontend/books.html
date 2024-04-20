@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Library Management</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Favicon -->
+    <link rel="shortcut icon" type="image/x-icon" href="../../static/favicon.png">
+    <!-- Toastify CSS -->
+<link href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css" rel="stylesheet">
+
+</head>
+<body>
+
+     <!-- Logo container -->
+     <div class="row mt-4 mb-4">
+        <div class="col-md-6">
+            <a href="/">
+                <img src="/static/logo.png" alt="Logo" style="max-height: 100px;">
+            </a>
+        </div>
+    </div>
+
+    <div class="container">
+        <h1>Library Management</h1>
+
+        <form id="addBookForm" enctype="multipart/form-data" method="POST">
+            <div class="form-group">
+                <label for="name">Name:</label>
+                <input type="text" class="form-control" id="name" name="name" required> <!-- Add name attribute -->
+            </div>
+            <div class="form-group">
+                <label for="author">Author:</label>
+                <input type="text" class="form-control" id="author" name="author" required> <!-- Add name attribute -->
+            </div>
+            <div class="form-group">
+                <label for="year_published">Year Published:</label>
+                <input type="number" class="form-control" id="year_published" name="year_published" required> <!-- Add name attribute -->
+            </div>
+            <div class="form-group">
+                <label for="book_type">Loan time:</label>
+                <select class="form-control" id="book_type" name="book_type" required> <!-- Add name attribute -->
+                    <option value="1">10 days</option>
+                    <option value="2">5 days</option>
+                    <option value="3">2 days</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="photo">Photo:</label>
+                <input type="file" class="form-control-file" id="photo" name="photo" accept="image/*"> <!-- Add name attribute -->
+            </div>
+            
+            <button type="button" class="btn btn-primary" onclick="addBook()">Add Book</button>
+        </form>
+        
+
+
+        <!-- Display All Books Button -->
+        <h2>Books</h2>
+
+<button type="button" class="btn btn-primary" onclick="toggleBooksVisibility()" data-toggle="toggleBooks">Show All Books</button>
+
+<table class="table" id="booksTable" style="display: none;">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Author</th>
+            <th>Year Published</th>
+            <th>Book Type</th>
+            <th>Image</th> <!-- New column for book image -->
+            <th>Action</th> <!-- New column for delete button -->
+        </tr>
+    </thead>
+    <tbody id="bookList">
+    </tbody>
+</table>
+
+       
+    </div>
+
+    <!-- Bootstrap JS and jQuery (optional) -->
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.3/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <!-- Axios -->
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <!-- Toastify JavaScript -->
+<script src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
+
+
+    <script>
+        // Function to add a new book
+function addBook() {
+    var name = document.getElementById('name').value;
+    var author = document.getElementById('author').value;
+    var year_published = document.getElementById('year_published').value;
+    var book_type = document.getElementById('book_type').value;
+    var photo = document.getElementById('photo').files[0]; // Capture the selected file
+
+    // Check if any of the required fields are empty
+    if (name.trim() === '' || author.trim() === '' || year_published.trim() === '') {
+        Toastify({
+            text: "Please fill out all required fields (Name, Author, Year Published).",
+            duration: 3000, // Display duration in milliseconds
+            close: true // Show close button
+        }).showToast();
+        return; // Exit the function if any required field is empty
+    }
+
+    // Create FormData object to send form data as multipart/form-data
+    var formData = new FormData();
+    formData.append('name', name);
+    formData.append('author', author);
+    formData.append('year_published', year_published);
+    formData.append('book_type', book_type);
+    formData.append('photo', photo); // Append file data
+
+    axios.post('/add_book', formData)
+        .then(response => {
+            Toastify({
+                text: response.data.message,
+                duration: 3000,
+                close: true
+            }).showToast();
+            // Clear input fields
+            document.getElementById('name').value = '';
+            document.getElementById('author').value = '';
+            document.getElementById('year_published').value = '';
+            document.getElementById('book_type').selectedIndex = 0; // Reset book type selection
+            document.getElementById('photo').value = ''; // Clear file input
+        })
+        .catch(error => console.error('Error:', error));
+}
+
+        
+    
+       // Function to toggle the visibility of books
+function toggleBooksVisibility() {
+    var booksTable = document.getElementById('booksTable');
+    var toggleBooksBtn = document.querySelector('button.btn-primary[data-toggle="toggleBooks"]'); // Select the toggle button
+
+    if (booksTable.style.display === 'none') {
+        booksTable.style.display = 'block';
+        toggleBooksBtn.textContent = 'Hide Books';
+        fetchBooks(); // Call fetchBooks() when showing books
+    } else {
+        booksTable.style.display = 'none';
+        toggleBooksBtn.textContent = 'Show All Books';
+    }
+}
+
+
+
+
+// Function to fetch and display books
+function fetchBooks() {
+    console.log("Fetching books...");
+    axios.get('/books')
+    .then(response => {
+        console.log("Books data received:", response.data);
+        var bookList = '';
+        response.data.forEach(book => {
+            // Check if book.photo is empty, if so, use the URL of the default photo
+            var photoSrc = book.photo ? book.photo : '/static/defult.png';
+            bookList += `<tr>
+                            <td>${book.id}</td>
+                            <td>${book.name}</td>
+                            <td>${book.author}</td>
+                            <td>${book.year_published}</td>
+                            <td>${book.book_type}</td>
+                            <td><img src="${photoSrc}" alt="Book Image" style="max-height: 50px; max-width: 50px;"></td> <!-- Book image -->
+                        </tr>`;
+        });
+        document.getElementById('bookList').innerHTML = bookList;
+    })
+    .catch(error => console.error('Error:', error));
+}
+// Function to fetch and display books
+function fetchBooks() {
+    console.log("Fetching books...");
+    axios.get('/books')
+    .then(response => {
+        console.log("Books data received:", response.data);
+        var bookList = '';
+        response.data.forEach(book => {
+            // Check if book.photo is empty, if so, use the URL of the default photo
+            var photoSrc = book.photo ? book.photo : '/static/defult.png';
+            bookList += `<tr>
+                            <td>${book.id}</td>
+                            <td>${book.name}</td>
+                            <td>${book.author}</td>
+                            <td>${book.year_published}</td>
+                            <td>${book.book_type}</td>
+                            <td><img src="${photoSrc}" alt="Book Image" style="max-height: 50px; max-width: 50px;"></td> <!-- Book image -->
+                            <td><button class="btn btn-danger" onclick="deleteBook(${book.id})">Delete</button></td> <!-- Delete button -->
+                        </tr>`;
+        });
+        document.getElementById('bookList').innerHTML = bookList;
+    })
+    .catch(error => console.error('Error:', error));
+}
+
+function deleteBook(bookId) {
+    console.log('Deleting book with ID:', bookId); // Add this line
+    // Confirm deletion
+    if (confirm('Are you sure you want to delete this book?')) {
+        // Send DELETE request to server
+        axios.delete(`/books/${bookId}`)
+            .then(response => {
+                // If deletion successful, fetch and display updated book list
+                fetchBooks();
+                // Show success message
+                Toastify({
+                    text: response.data.message,
+                    duration: 3000,
+                    close: true
+                }).showToast();
+            })
+            .catch(error => console.error('Error:', error));
+    }
+}
+
+
+
+
+    </script>
+</body>
+</html>

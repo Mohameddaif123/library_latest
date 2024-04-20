@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Customers</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Favicon -->
+    <link rel="shortcut icon" type="image/x-icon" href="../../static/favicon.png">
+    <!-- Toastify CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css" rel="stylesheet">
+
+</head>
+<body>
+    <div class="container">
+        <!-- Logo container -->
+        <div class="row mt-4 mb-4">
+            <div class="col-md-6">
+                <a href="/">
+                    <img src="/static/logo.png" alt="Logo" style="max-height: 100px;">
+                </a>
+            </div>
+        </div>
+
+        <h1>Customers</h1>
+        <button type="button" class="btn btn-primary" onclick="toggleCustomerListVisibility()">Show All Customers</button>
+        <table class="table" style="margin-top: 20px;" id="customerTable">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>City</th>
+                    <th>Age</th>
+                    <th>Action</th> <!-- Add this column for delete button -->
+                </tr>
+            </thead>
+            <tbody id="customerList">
+            </tbody>
+        </table>
+        <h2>Add New Customer</h2>
+        <div class="form-group">
+            <label for="name">Name:</label>
+            <input type="text" class="form-control" id="name" required>
+        </div>
+        <div class="form-group">
+            <label for="city">City:</label>
+            <input type="text" class="form-control" id="city" required>
+        </div>
+        <div class="form-group">
+            <label for="age">Age:</label>
+            <input type="number" class="form-control" id="age" required>
+        </div>
+        
+        <button type="button" class="btn btn-primary" onclick="addCustomer()">Submit</button>
+    </div>
+
+    <!-- Bootstrap JS and jQuery (optional) -->
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.3/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <!-- Axios -->
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <!-- Toastify JavaScript -->
+    <script src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
+
+    <script>
+        // Function to add a new customer
+        function addCustomer() {
+            var name = document.getElementById('name').value;
+            var city = document.getElementById('city').value;
+            var age = document.getElementById('age').value;
+
+            // Check if any field is empty
+            if (!name || !city || !age) {
+                Toastify({
+                    text: "Please fill in all fields",
+                    duration: 3000, // Display duration in milliseconds
+                    close: true // Show close button
+                }).showToast();
+                return; // Stop further execution
+            }
+
+            // Proceed with adding the customer
+            axios.post('/add_customer', {
+                    name: name,
+                    city: city,
+                    age: age
+                })
+                .then(response => {
+                    Toastify({
+                        text: response.data.message,
+                        duration: 3000,
+                        close: true
+                    }).showToast();
+                    // Clear input fields
+                    document.getElementById('name').value = '';
+                    document.getElementById('city').value = '';
+                    document.getElementById('age').value = '';
+                })
+                .catch(error => console.error('Error:', error));
+        }
+
+        // Function to fetch and display customers
+        function fetchCustomers() {
+            axios.get('/customers')
+            .then(response => {
+                var customerList = '';
+                response.data.forEach(customer => {
+                    customerList += `<tr>
+                                        <td>${customer.id}</td>
+                                        <td>${customer.name}</td>
+                                        <td>${customer.city}</td>
+                                        <td>${customer.age}</td>
+                                        <td><button class="btn btn-danger" onclick="deleteCustomer(${customer.id})">Delete</button></td> <!-- Delete button -->
+                                    </tr>`;
+                });
+                document.getElementById('customerList').innerHTML = customerList;
+            })
+            .catch(error => console.error('Error:', error));
+        }
+
+        // Function to delete a customer
+        function deleteCustomer(customerId) {
+            // Confirm deletion
+            if (confirm('Are you sure you want to delete this customer?')) {
+                // Send DELETE request to server
+                axios.delete(`/customers/${customerId}`)
+                    .then(response => {
+                        // If deletion successful, fetch and display updated customer list
+                        fetchCustomers();
+                        // Show success message
+                        Toastify({
+                            text: response.data.message,
+                            duration: 3000,
+                            close: true
+                        }).showToast();
+                    })
+                    .catch(error => console.error('Error:', error));
+            }
+        }
+
+        // Function to toggle the visibility of the customer list
+        function toggleCustomerListVisibility() {
+            var button = document.querySelector('.btn-primary');
+            var table = document.getElementById('customerTable');
+            if (button.innerText === 'Show All Customers') {
+                button.innerText = 'Hide All Customers';
+                fetchCustomers();
+                table.style.display = 'block';
+            } else {
+                button.innerText = 'Show All Customers';
+                table.style.display = 'none';
+            }
+        }
+    </script>
+</body>
+</html>
